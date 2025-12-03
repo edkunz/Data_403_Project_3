@@ -1,0 +1,53 @@
+---
+title: "photo_flag_analysis"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+
+df <- read_csv(here::here("Data", "photo_classification.csv")) |>
+  select(-c(photo, photographer)) |>
+  mutate(conv_class = if_else(conv_prob >= 0.5, "kelly", "alex"),
+         conv_class = factor(conv_class, levels = c("alex", "kelly")))
+```
+
+```{r}
+lg_rec <- recipe(conv_class ~ ., data = df)
+
+lg_mod <- logistic_reg() |>
+  set_mode("classification") |>
+  set_engine("glm")
+
+lg_wflow <- workflow() |>
+  add_model(lg_mod) |>
+  add_recipe(lg_rec)
+
+set.seed(402)
+df_cv <- vfold_cv(df, v = 5)
+
+lg_wflow |>
+  fit_resamples(resamples = df_cv, metrics = metric_set(accuracy, roc_auc)) |>
+  collect_metrics()
+
+
+lr_rec <- recipe(conv_prob ~ ., data = df)
+
+lr_mod <- linear_reg() |>
+  set_mode("regression") |>
+  set_engine("lm")
+
+lr_wflow <- workflow() |>
+  add_model(lr_mod) |>
+  add_recipe(lr_rec)
+
+set.seed(402)
+df_cv <- vfold_cv(df, v = 5)
+
+lr_wflow |>
+  fit_resamples(resamples = df_cv, metrics = metric_set(rsq, rmse)) |>
+  collect_metrics()
+```
+
+
